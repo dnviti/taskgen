@@ -20,8 +20,8 @@ jobs:
 
     - name: Setup Git Config
       run: |
-        git config --global user.email "action@github.com"
-        git config --global user.name "GitHub Action"
+        git config --global user.email "dnviti@gmail.com"
+        git config --global user.name "Daniele Viti"
 
     - name: Determine Next Version
       id: versioning

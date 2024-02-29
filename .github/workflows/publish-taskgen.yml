@@ -60,6 +60,7 @@ jobs:
         https://api.github.com/repos/${{ github.repository }}/releases/${{ env.RELEASE_ID }}
 
     - name: Create 'latest' Release
+      id: create_latest_release
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
@@ -77,12 +78,13 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
       with:
-        upload_url: ${{ steps.latest_release.outputs.upload_url }}
+        upload_url: ${{ steps.create_latest_release.outputs.upload_url }}
         asset_path: ./taskgen
         asset_name: taskgen
         asset_content_type: application/octet-stream
 
     - name: Create Versioned Release
+      id: create_versioned_release
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
@@ -96,7 +98,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        upload_url: ${{ steps.create_versioned_release.outputs.upload_url }}
         asset_path: ./taskgen
         asset_name: taskgen-${{ env.NEW_TAG }}
         asset_content_type: application/octet-stream

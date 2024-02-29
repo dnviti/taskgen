@@ -1,7 +1,3 @@
-Below is a sample documentation for the enhanced script, designed to be posted on GitHub. This documentation includes an introduction to the script, why one might prefer systemd over cron for scheduling tasks, installation instructions, usage examples, and an explanation of the script's parameters. Adjust the content as necessary to fit your project's specifics or personal preferences.
-
----
-
 # Systemd Task Generator (taskgen)
 
 The Systemd Task Generator (`taskgen`) is a versatile shell script designed to simplify the creation and management of systemd timers and services. By abstracting the complexities of systemd's configuration files, `taskgen` provides an easy-to-use interface for scheduling and executing tasks on modern Linux systems.

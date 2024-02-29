@@ -1,0 +1,49 @@
+name: Publish Taskgen Release
+
+on:
+  push:
+    branches:
+      - main  # or your default branch
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+      - name: Calculate Version
+        id: versioning
+        run: |
+          VERSION_PREFIX=$(date "+%Y.%m.")
+          TAGS=$(git tag --list "${VERSION_PREFIX}*")
+          LAST_VERSION=$(echo "${TAGS}" | sort -V | tail -n1)
+          if [[ -z "${LAST_VERSION}" ]]; then
+            VERSION="${VERSION_PREFIX}1"
+          else
+            VERSION_NUMBER=$(echo "${LAST_VERSION}" | sed -e "s/${VERSION_PREFIX}//")
+            NEXT_VERSION_NUMBER=$((VERSION_NUMBER + 1))
+            VERSION="${VERSION_PREFIX}${NEXT_VERSION_NUMBER}"
+          fi
+          echo "New version: ${VERSION}"
+          echo "::set-output name=version::${VERSION}"
+
+      - name: Create Tag
+        run: |
+          git tag ${{ steps.versioning.outputs.version }}
+          git push origin ${{ steps.versioning.outputs.version }}
+
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.versioning.outputs.version }}
+          release_name: Release ${{ steps.versioning.outputs.version }}
+          draft: false
+          prerelease: false

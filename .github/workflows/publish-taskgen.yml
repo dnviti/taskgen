@@ -11,7 +11,7 @@ jobs:
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v2
-      
+
     - name: Install SHC
       run: sudo apt-get update && sudo apt-get install -y shc
 
@@ -20,11 +20,10 @@ jobs:
 
     - name: Setup Git Config
       run: |
-        git config --global user.email "dnviti@gmail.com"
-        git config --global user.name "Daniele Viti"
+        git config --global user.email "action@github.com"
+        git config --global user.name "GitHub Action"
 
     - name: Determine Next Version
-      id: versioning
       run: |
         TAG=$(git tag --sort=-v:refname | head -n 1)
         if [[ $TAG =~ ([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
@@ -39,13 +38,14 @@ jobs:
         else
           NEW_TAG="$(date +"%Y.%m.1")"
         fi
-        echo "::set-output name=VERSION::$NEW_TAG"
         echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
 
     - name: Tag Repository
       run: |
         git tag ${{ env.NEW_TAG }}
-        git push https://dnviti:${{ secrets.ACCESS_TOKEN }}@github.com/dnviti/taskgen.git --tags
+        git push --tags
+      env:
+        GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
 
     - name: Create 'latest' Release
       uses: actions/create-release@v1
@@ -71,13 +71,12 @@ jobs:
         asset_content_type: application/octet-stream
 
     - name: Create Versioned Release
-      id: create_release
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
       with:
-        tag_name: ${{ steps.versioning.outputs.VERSION }}
-        release_name: Release ${{ steps.versioning.outputs.VERSION }}
+        tag_name: ${{ env.NEW_TAG }}
+        release_name: Release ${{ env.NEW_TAG }}
         draft: false
         prerelease: false
 
@@ -88,5 +87,5 @@ jobs:
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./taskgen
-        asset_name: taskgen-${{ steps.versioning.outputs.VERSION }}
+        asset_name: taskgen-${{ env.NEW_TAG }}
         asset_content_type: application/octet-stream

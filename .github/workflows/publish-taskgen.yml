@@ -1,63 +1,44 @@
-name: Publish Taskgen Release
+name: Compile and Release taskgen
 
 on:
-  push:
-    branches:
-      - master  # Or your default branch
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (format: yyyy.mm.incremental_number)'
+        required: true
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
+
     steps:
-    - name: Checkout code
+    - name: Checkout repository
       uses: actions/checkout@v2
 
-    - name: Set up Git
+    - name: Install shc
+      run: sudo apt-get install -y shc
+
+    - name: Compile script with shc
+      run: shc -f taskgen.sh -o compiled_taskgen
+
+    - name: Prepare for release
       run: |
+        VERSION=${{ github.event.inputs.version }}
         git config user.name github-actions
         git config user.email github-actions@github.com
+        git tag $VERSION
+        git push origin $VERSION
 
-    - name: Calculate new version tag
-      id: versioning
-      run: |
-        # Fetch all tags
-        git fetch --tags
-        
-        # Get the latest tag matching the pattern yyyy.mm.incremental_number
-        latest_tag=$(git tag --list '[0-9]*' --sort=-version:refname | head -n1)
-        echo "Latest tag: $latest_tag"
-        
-        # Calculate next tag
-        if [[ $latest_tag == "" ]]; then
-          new_tag=$(date +'%Y.%m.1')
-        else
-          year_month=$(date +'%Y.%m')
-          base="${latest_tag%.*}"
-          if [[ $base == $year_month ]]; then
-            increment=${latest_tag##*.}
-            let "increment++"
-            new_tag="$year_month.$increment"
-          else
-            new_tag="$year_month.1"
-          fi
-        fi
-        echo "New tag: $new_tag"
-        
-        # Set the new tag as an output
-        echo "::set-output name=new_tag::$new_tag"
-      shell: bash
-
-    - name: Compile Script
-      run: |
-        chmod +x taskgen.sh
-        # Any other compilation steps
+      env:
+        GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
 
     - name: Create Release
       uses: actions/create-release@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
       with:
-        tag_name: ${{ steps.versioning.outputs.new_tag }}
-        release_name: Release ${{ steps.versioning.outputs.new_tag }}
+        tag_name: ${{ github.event.inputs.version }}
+        release_name: Release ${{ github.event.inputs.version }}
         draft: false
         prerelease: false
+        body: "New release of taskgen"

@@ -19,14 +19,14 @@ To install `taskgen`, you can use `wget` or `curl` to download the script from t
 ### Using wget
 
 ```bash
-wget [URL_TO_TASKGEN_SCRIPT] -O taskgen
+wget https://github.com/dnviti/taskgen/releases/download/latest/taskgen -O taskgen
 sudo install -o root -g root -m 0755 taskgen /usr/local/bin/taskgen
 ```
 
 ### Using curl
 
 ```bash
-curl -o taskgen [URL_TO_TASKGEN_SCRIPT]
+curl -o taskgen https://github.com/dnviti/taskgen/releases/download/latest/taskgen
 sudo install -o root -g root -m 0755 taskgen /usr/local/bin/taskgen
 ```
 

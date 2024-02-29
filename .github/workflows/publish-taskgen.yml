@@ -40,6 +40,25 @@ jobs:
         fi
         echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
 
+    - name: Check if 'latest' Release Exists
+      id: latest_release_check
+      run: |
+        LATEST_RELEASE=$(curl -s -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
+        https://api.github.com/repos/${{ github.repository }}/releases/tags/latest)
+        if echo "$LATEST_RELEASE" | grep -q '"message": "Not Found"'; then
+          echo "LATEST_EXISTS=false" >> $GITHUB_ENV
+        else
+          echo "LATEST_EXISTS=true" >> $GITHUB_ENV
+          RELEASE_ID=$(echo "$LATEST_RELEASE" | jq .id)
+          echo "RELEASE_ID=${RELEASE_ID}" >> $GITHUB_ENV
+        fi
+
+    - name: Delete 'latest' Release if Exists
+      if: env.LATEST_EXISTS == 'true'
+      run: |
+        curl -X DELETE -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
+        https://api.github.com/repos/${{ github.repository }}/releases/${{ env.RELEASE_ID }}
+
     - name: Create 'latest' Release
       uses: actions/create-release@v1
       env:

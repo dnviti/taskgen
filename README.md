@@ -63,7 +63,7 @@ taskgen --name NAME --command COMMAND [--frequency FREQUENCY] [--operation OPERA
    Create a timer that starts a task 10 minutes after boot, repeating every 2 hours, with a randomized delay of up to 30 seconds.
 
    ```bash
-   taskgen --name example-task --command "/path/to/script" --timer-options "OnBootSec=10min OnUnitActiveSec=2h RandomizedDelaySec=30s"
+   taskgen --name example-task --command "/path/to/script" --timer-options "OnBootSec=10min,OnUnitActiveSec=2h,RandomizedDelaySec=30s"
    ```
 
 4. **Weekly Email Report**

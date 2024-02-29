@@ -88,4 +88,4 @@ For more complex scheduling needs or specific systemd functionality, use the `--
 
 ---
 
-The initial version of this readme and the taskgen script has been generated with GPT-4
+The initial version of this readme and the taskgen script has been generated with GPT-4 

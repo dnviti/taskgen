@@ -42,6 +42,11 @@ jobs:
         echo "::set-output name=VERSION::$NEW_TAG"
         echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
 
+    - name: Tag Repository
+      run: |
+        git tag ${{ env.NEW_TAG }}
+        git push https://<username>:${{ secrets.ACCESS_TOKEN }}@github.com/<repository>.git --tags
+
     - name: Create 'latest' Release
       uses: actions/create-release@v1
       env:
@@ -71,8 +76,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
       with:
-        tag_name: ${{ env.NEW_TAG }}
-        release_name: Release ${{ env.NEW_TAG }}
+        tag_name: ${{ steps.versioning.outputs.VERSION }}
+        release_name: Release ${{ steps.versioning.outputs.VERSION }}
         draft: false
         prerelease: false
 
@@ -83,5 +88,5 @@ jobs:
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./taskgen
-        asset_name: taskgen-${{ env.NEW_TAG }}
+        asset_name: taskgen-${{ steps.versioning.outputs.VERSION }}
         asset_content_type: application/octet-stream

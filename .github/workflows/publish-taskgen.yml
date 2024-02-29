@@ -40,13 +40,6 @@ jobs:
         fi
         echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
 
-    - name: Tag Repository
-      run: |
-        git tag ${{ env.NEW_TAG }}
-        git push --tags
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
     - name: Create 'latest' Release
       uses: actions/create-release@v1
       env:
@@ -75,7 +68,6 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ env.NEW_TAG }}
         release_name: Release ${{ env.NEW_TAG }}
         draft: false
         prerelease: false

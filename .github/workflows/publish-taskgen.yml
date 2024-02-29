@@ -3,7 +3,7 @@ name: Compile and Release Taskgen
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   build-and-release:

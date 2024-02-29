@@ -45,7 +45,7 @@ jobs:
     - name: Tag Repository
       run: |
         git tag ${{ env.NEW_TAG }}
-        git push https://<username>:${{ secrets.ACCESS_TOKEN }}@github.com/<repository>.git --tags
+        git push https://dnviti:${{ secrets.ACCESS_TOKEN }}@github.com/dnviti/taskgen.git --tags
 
     - name: Create 'latest' Release
       uses: actions/create-release@v1

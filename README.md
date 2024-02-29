@@ -20,13 +20,7 @@ Below is a sample documentation for the enhanced systemd timer and service creat
 To install the script, use either `wget` or `curl` to download it, and then use `sudo install` to place it in the `/usr/local/bin` directory, making it executable and available system-wide.
 
 ```bash
-# Using wget
-wget https://github.com/dnviti/taskgen/releases/download/latest/taskgen -O taskgen
-
-# Or using curl
-curl -O https://github.com/dnviti/taskgen/releases/download/latest/taskgen -o taskgen
-
-# Install the script
+wget https://github.com/dnviti/taskgen/releases/download/latest/taskgen -O taskgen && \
 sudo install -o root -g root -m 0755 taskgen /usr/local/bin/taskgen
 ```
 

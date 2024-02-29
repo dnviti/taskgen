@@ -43,6 +43,8 @@ jobs:
         echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
 
     - name: Tag Repository
+      env:
+        GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
       run: |
         git tag ${{ env.NEW_TAG }}
         git push --tags

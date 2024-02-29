@@ -83,22 +83,23 @@ jobs:
         asset_name: taskgen
         asset_content_type: application/octet-stream
 
-    - name: Create Versioned Release
-      id: create_versioned_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
-      with:
-        release_name: Release ${{ env.NEW_TAG }}
-        draft: false
-        prerelease: false
+# Creation of tag not working, do not know how to do that
+#    - name: Create Versioned Release
+#      id: create_versioned_release
+#      uses: actions/create-release@v1
+#      env:
+#        GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+#      with:
+#        release_name: Release ${{ env.NEW_TAG }}
+#        draft: false
+#        prerelease: false
 
-    - name: Upload 'taskgen' to Versioned Release
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_versioned_release.outputs.upload_url }}
-        asset_path: ./taskgen
-        asset_name: taskgen-${{ env.NEW_TAG }}
-        asset_content_type: application/octet-stream
+#    - name: Upload 'taskgen' to Versioned Release
+#      uses: actions/upload-release-asset@v1
+#      env:
+#        GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+#      with:
+#        upload_url: ${{ steps.create_versioned_release.outputs.upload_url }}
+#        asset_path: ./taskgen
+#        asset_name: taskgen-${{ env.NEW_TAG }}
+#        asset_content_type: application/octet-stream

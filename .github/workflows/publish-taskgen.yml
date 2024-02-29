@@ -3,47 +3,61 @@ name: Publish Taskgen Release
 on:
   push:
     branches:
-      - master  # or your default branch
+      - master  # Or your default branch
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v2
 
-      - name: Configure Git
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
+    - name: Set up Git
+      run: |
+        git config user.name github-actions
+        git config user.email github-actions@github.com
 
-      - name: Calculate Version
-        id: versioning
-        run: |
-          VERSION_PREFIX=$(date "+%Y.%m.")
-          TAGS=$(git tag --list "${VERSION_PREFIX}*")
-          LAST_VERSION=$(echo "${TAGS}" | sort -V | tail -n1)
-          if [[ -z "${LAST_VERSION}" ]]; then
-            VERSION="${VERSION_PREFIX}1"
+    - name: Calculate new version tag
+      id: versioning
+      run: |
+        # Fetch all tags
+        git fetch --tags
+        
+        # Get the latest tag matching the pattern yyyy.mm.incremental_number
+        latest_tag=$(git tag --list '[0-9]*' --sort=-version:refname | head -n1)
+        echo "Latest tag: $latest_tag"
+        
+        # Calculate next tag
+        if [[ $latest_tag == "" ]]; then
+          new_tag=$(date +'%Y.%m.1')
+        else
+          year_month=$(date +'%Y.%m')
+          base="${latest_tag%.*}"
+          if [[ $base == $year_month ]]; then
+            increment=${latest_tag##*.}
+            let "increment++"
+            new_tag="$year_month.$increment"
           else
-            VERSION_NUMBER=$(echo "${LAST_VERSION}" | sed -e "s/${VERSION_PREFIX}//")
-            NEXT_VERSION_NUMBER=$((VERSION_NUMBER + 1))
-            VERSION="${VERSION_PREFIX}${NEXT_VERSION_NUMBER}"
+            new_tag="$year_month.1"
           fi
-          echo "New version: ${VERSION}"
-          echo "::set-output name=version::${VERSION}"
+        fi
+        echo "New tag: $new_tag"
+        
+        # Set the new tag as an output
+        echo "::set-output name=new_tag::$new_tag"
+      shell: bash
 
-      - name: Create Tag
-        run: |
-          git tag ${{ steps.versioning.outputs.version }}
-          git push origin ${{ steps.versioning.outputs.version }}
+    - name: Compile Script
+      run: |
+        chmod +x taskgen.sh
+        # Any other compilation steps
 
-      - name: Create Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.versioning.outputs.version }}
-          release_name: Release ${{ steps.versioning.outputs.version }}
-          draft: false
-          prerelease: false
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GH_PAT }}  # Use your PAT here
+      with:
+        tag_name: ${{ steps.versioning.outputs.new_tag }}
+        release_name: Release ${{ steps.versioning.outputs.new_tag }}
+        draft: false
+        prerelease: false

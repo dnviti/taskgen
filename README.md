@@ -85,6 +85,7 @@ taskgen --name NAME --command COMMAND [--frequency FREQUENCY] [--operation OPERA
 ### Advanced Configuration
 
 For more complex scheduling needs or specific systemd functionality, use the `--timer-options` parameter to directly input systemd timer options. This allows for leveraging the full capability of systemd timers, including dependencies, conditions, and environmental settings.
+
 ---
 
 The initial version of this readme and the taskgen script has been generated with GPT-4

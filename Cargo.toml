@@ -1,0 +1,14 @@
+[package]
+name = "taskgen"
+version = "0.1.0"
+edition = "2021"
+description = "A Rust program to manage systemd timers and services."
+authors = ["dnviti@gmail.com"]
+license = "MIT"
+
+[dependencies]
+clap = "3.0"
+
+[[bin]]
+name = "systemd_timer_manager"
+path = "src/main.rs"

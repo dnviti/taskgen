@@ -1,44 +1,92 @@
-name: Compile and Release taskgen
+name: Compile and Release Taskgen
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Release version (format: yyyy.mm.incremental_number)'
-        required: true
+  push:
+    branches:
+      - main
 
 jobs:
-  build:
+  build-and-release:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout repository
+    - name: Checkout Repository
       uses: actions/checkout@v2
+      
+    - name: Install SHC
+      run: sudo apt-get update && sudo apt-get install -y shc
 
-    - name: Install shc
-      run: sudo apt-get install -y shc
-
-    - name: Compile script with shc
+    - name: Compile script with SHC
       run: shc -f taskgen.sh -o taskgen
 
-    - name: Prepare for release
+    - name: Setup Git Config
       run: |
-        VERSION=${{ github.event.inputs.version }}
-        git config user.name github-actions
-        git config user.email github-actions@github.com
-        git tag $VERSION
-        git push origin $VERSION
+        git config --global user.email "action@github.com"
+        git config --global user.name "GitHub Action"
 
-      env:
-        GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+    - name: Determine Next Version
+      id: versioning
+      run: |
+        TAG=$(git tag --sort=-v:refname | head -n 1)
+        if [[ $TAG =~ ([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
+          YEAR=$(date +"%Y")
+          MONTH=$(date +"%m")
+          if [[ "${BASH_REMATCH[1]}" -eq "$YEAR" && "${BASH_REMATCH[2]}" -eq "$MONTH" ]]; then
+            NEXT_INCREMENT=$((${BASH_REMATCH[3]} + 1))
+          else
+            NEXT_INCREMENT=1
+          fi
+          NEW_TAG="$YEAR.$MONTH.$NEXT_INCREMENT"
+        else
+          NEW_TAG="$(date +"%Y.%m.1")"
+        fi
+        echo "::set-output name=VERSION::$NEW_TAG"
+        echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
 
-    - name: Create Release
+    - name: Tag Repository
+      run: |
+        git tag ${{ env.NEW_TAG }}
+        git push --tags
+
+    - name: Create 'latest' Release
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
       with:
-        tag_name: ${{ github.event.inputs.version }}
-        release_name: Release ${{ github.event.inputs.version }}
+        tag_name: latest
+        target_commitish: ${{ github.sha }}
+        name: Latest Release
+        body: 'Update latest release'
         draft: false
         prerelease: false
-        body: "New release of taskgen"
+        overwrite: true
+
+    - name: Upload 'taskgen' to 'latest' Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+      with:
+        upload_url: ${{ steps.latest_release.outputs.upload_url }}
+        asset_path: ./taskgen
+        asset_name: taskgen
+        asset_content_type: application/octet-stream
+
+    - name: Create Versioned Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+      with:
+        tag_name: ${{ steps.versioning.outputs.VERSION }}
+        release_name: Release ${{ steps.versioning.outputs.VERSION }}
+        draft: false
+        prerelease: false
+
+    - name: Upload 'taskgen' to Versioned Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./taskgen
+        asset_name: taskgen-${{ steps.versioning.outputs.VERSION }}
+        asset_content_type: application/octet-stream

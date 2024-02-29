@@ -3,7 +3,7 @@ name: Publish Taskgen Release
 on:
   push:
     branches:
-      - main  # or your default branch
+      - master  # or your default branch
 
 jobs:
   release:

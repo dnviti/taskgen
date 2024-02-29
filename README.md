@@ -21,16 +21,14 @@ To install the script, use either `wget` or `curl` to download it, and then use 
 
 ```bash
 # Using wget
-wget [SCRIPT_URL] -O taskgen
+wget https://github.com/dnviti/taskgen/releases/download/latest/taskgen -O taskgen
 
 # Or using curl
-curl -O [SCRIPT_URL] -o taskgen
+curl -O https://github.com/dnviti/taskgen/releases/download/latest/taskgen -o taskgen
 
 # Install the script
 sudo install -o root -g root -m 0755 taskgen /usr/local/bin/taskgen
 ```
-
-Replace `[SCRIPT_URL]` with the actual URL where the script is hosted.
 
 ## Usage
 

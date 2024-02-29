@@ -12,70 +12,66 @@ Systemd offers several advantages over traditional cron jobs for scheduling task
 - **Resource Control**: Systemd allows for precise control over the resources available to scheduled tasks, ensuring that critical system resources remain unaffected by background tasks.
 - **Security**: Enhanced security features, such as sandboxing, are available for tasks managed by systemd.
 
-## Installation
+Installation
+To install the script, use either wget or curl to download it, and then use sudo install to place it in the /usr/local/bin directory, making it executable and available system-wide.
 
-To install `taskgen`, you can use `wget` or `curl` to download the script from this repository, then use the `install` command to place it in your system's binary directory, making it executable by root. This ensures that the script can be easily executed from anywhere on your system.
+bash
+Copy code
+# Using wget
+wget [SCRIPT_URL] -O taskgen
 
-### Using wget
+# Or using curl
+curl -O [SCRIPT_URL] -o taskgen
 
-```bash
-wget https://github.com/dnviti/taskgen/releases/download/latest/taskgen -O taskgen
+# Install the script
 sudo install -o root -g root -m 0755 taskgen /usr/local/bin/taskgen
-```
+Replace [SCRIPT_URL] with the actual URL where the script is hosted.
 
-### Using curl
+Usage
+The script supports creating and deleting systemd timers and services with a variety of options for detailed customization.
 
-```bash
-curl -o taskgen https://github.com/dnviti/taskgen/releases/download/latest/taskgen
-sudo install -o root -g root -m 0755 taskgen /usr/local/bin/taskgen
-```
+Basic Command Structure
+bash
+Copy code
+taskgen --name NAME --command COMMAND [--frequency FREQUENCY] [--operation OPERATION] [--timer-options OPTIONS]
+Examples
+Creating a Daily Backup Task
 
-Replace `[URL_TO_TASKGEN_SCRIPT]` with the actual URL where the `taskgen` script is hosted.
+Create a service to perform daily backups at midnight.
 
-## Usage
+bash
+Copy code
+taskgen --name daily-backup --command "/usr/bin/backup.sh" --frequency daily
+Deleting a Task
 
-### Creating a New Timer
+Delete the previously created daily-backup task.
 
-```bash
-taskgen --name <name> --command <command> [--frequency <frequency>] [--timer-options <options>] [--operation create]
-```
-
-### Deleting an Existing Timer
-
-```bash
-taskgen --name <name> --operation delete
-```
-
-### Parameters
-
-- `-n, --name`: Name of the systemd service and timer.
-- `-c, --command`: Command that the service will execute.
-- `-f, --frequency`: (Optional) Frequency of the timer (e.g., `daily`, `weekly`, `@reboot`). This is optional if `--timer-options` is provided.
-- `-o, --operation`: (Optional) Operation to perform: `create` (default) or `delete`.
-- `-t, --timer-options`: (Optional) Additional systemd timer options (e.g., `OnBootSec=10min`). This provides advanced customization for the timer.
-
-## Examples
-
-### Example 1: Create a Daily Timer
-
-To create a timer that runs a backup script daily at midnight:
-
-```bash
-taskgen --name daily-backup --command "/usr/local/bin/backup.sh" --frequency daily
-```
-
-### Example 2: Delete a Timer
-
-To delete the previously created `daily-backup` timer:
-
-```bash
+bash
+Copy code
 taskgen --name daily-backup --operation delete
-```
+Specifying Advanced Timer Options
 
-## Advanced Configuration
+Create a timer that starts a task 10 minutes after boot, repeating every 2 hours, with a randomized delay of up to 30 seconds.
 
-For complex scheduling needs, use the `--timer-options` parameter to specify custom systemd timer directives. Consult the systemd.timer man page (`man systemd.timer`) for a comprehensive list of available options.
+bash
+Copy code
+taskgen --name example-task --command "/path/to/script" --timer-options "OnBootSec=10min OnUnitActiveSec=2h RandomizedDelaySec=30s"
+Weekly Email Report
 
+Send an email report every Monday at 08:00 AM.
+
+bash
+Copy code
+taskgen --name weekly-email --command "/usr/bin/send-email-report.sh" --frequency weekly
+Reboot System at Specific Time
+
+Schedule a system reboot every day at 3:00 AM.
+
+bash
+Copy code
+taskgen --name system-reboot --command "/sbin/reboot" --frequency "*-*-* 03:00:00"
+Advanced Configuration
+For more complex scheduling needs or specific systemd functionality, use the --timer-options parameter to directly input systemd timer options. This allows for leveraging the full capability of systemd timers, including dependencies, conditions, and environmental settings.
 ---
 
 The initial version of this readme and the taskgen script has been generated with GPT-4

@@ -78,4 +78,4 @@ For complex scheduling needs, use the `--timer-options` parameter to specify cus
 
 ---
 
-This template provides a structured approach to documenting your script, ensuring users can easily understand its purpose, benefits, installation process, and how to use it effectively. Remember to replace placeholder elements with actual information relevant to your script and project.
+The initial version of this readme and the taskgen script has been generated with GPT-4

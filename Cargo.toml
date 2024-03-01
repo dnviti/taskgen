@@ -10,5 +10,5 @@ license = "MIT"
 clap = "3.0"
 
 [[bin]]
-name = "systemd_timer_manager"
+name = "taskgen"
 path = "src/main.rs"

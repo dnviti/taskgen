@@ -12,33 +12,20 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v2
 
-    - name: Install SHC
-      run: sudo apt-get update && sudo apt-get install -y gcc shc
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
 
-    - name: Compile script with SHC
-      run: shc -f taskgen.sh -o taskgen
+    - name: Build Release
+      run: cargo build --release
 
     - name: Setup Git Config
       run: |
         git config --global user.email "action@github.com"
         git config --global user.name "GitHub Action"
-
-    - name: Determine Next Version
-      run: |
-        TAG=$(git tag --sort=-v:refname | head -n 1)
-        if [[ $TAG =~ ([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
-          YEAR=$(date +"%Y")
-          MONTH=$(date +"%m")
-          if [[ "${BASH_REMATCH[1]}" -eq "$YEAR" && "${BASH_REMATCH[2]}" -eq "$MONTH" ]]; then
-            NEXT_INCREMENT=$((${BASH_REMATCH[3]} + 1))
-          else
-            NEXT_INCREMENT=1
-          fi
-          NEW_TAG="$YEAR.$MONTH.$NEXT_INCREMENT"
-        else
-          NEW_TAG="$(date +"%Y.%m.1")"
-        fi
-        echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
 
     - name: Check if 'latest' Release Exists
       id: latest_release_check
@@ -79,27 +66,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
       with:
         upload_url: ${{ steps.create_latest_release.outputs.upload_url }}
-        asset_path: ./taskgen
+        asset_path: ./target/release/taskgen  # Adjusted path for Rust
         asset_name: taskgen
         asset_content_type: application/octet-stream
-
-# Creation of tag not working, do not know how to do that
-#    - name: Create Versioned Release
-#      id: create_versioned_release
-#      uses: actions/create-release@v1
-#      env:
-#        GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
-#      with:
-#        release_name: Release ${{ env.NEW_TAG }}
-#        draft: false
-#        prerelease: false
-
-#    - name: Upload 'taskgen' to Versioned Release
-#      uses: actions/upload-release-asset@v1
-#      env:
-#        GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
-#      with:
-#        upload_url: ${{ steps.create_versioned_release.outputs.upload_url }}
-#        asset_path: ./taskgen
-#        asset_name: taskgen-${{ env.NEW_TAG }}
-#        asset_content_type: application/octet-stream

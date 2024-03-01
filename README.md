@@ -21,7 +21,8 @@ To install the script, use either `wget` or `curl` to download it, and then use 
 
 ```bash
 wget https://github.com/dnviti/taskgen/releases/download/latest/taskgen -O taskgen && \
-sudo install -o root -g root -m 0755 taskgen /usr/local/bin/taskgen
+sudo install -o root -g root -m 0755 taskgen /usr/local/bin/taskgen && \
+rm -f taskgen
 ```
 
 ## Usage

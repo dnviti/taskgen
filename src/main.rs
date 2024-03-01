@@ -3,9 +3,10 @@ use std::{fs, process::Command, io::Write};
 
 fn main() {
     let matches = App::new("Systemd Timer Manager")
-        .version("1.0")
-        .author("Your Name <your_email@example.com>")
+        .version("0.1")
+        .author("Daniele Viti <dnviti@gmail.com>")
         .about("Manages systemd timers and services")
+        .setting(clap::AppSettings::ArgRequiredElseHelp)
         .arg(Arg::with_name("name")
              .short('n')
              .long("name")
@@ -42,7 +43,7 @@ fn main() {
              .help("List all created timers and services"))
         .get_matches();
 
-    let db_file = "/var/lib/systemd-timer-db.txt";
+    let db_file = "/var/lib/taskgen-db";
 
     if matches.is_present("list") {
         list_db(db_file);
@@ -114,7 +115,7 @@ fn delete_task(name: &str, db_file: &str) {
 fn list_db(db_file: &str) {
     match fs::read_to_string(db_file) {
         Ok(contents) => {
-            println!("List of systemd timers and services created by the script:");
+            println!("List of systemd timers and services created by taskgen:");
             if contents.is_empty() {
                 println!("No tasks have been created yet.");
             } else {

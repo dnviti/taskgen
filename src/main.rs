@@ -70,7 +70,11 @@ fn create_task(name: &str, command: &str, frequency: &str, timer_options: &str, 
         "[Unit]\nDescription=Service for {}\n\n[Service]\nType=oneshot\nExecStart={}\n",
         name, command
     );
-    fs::write(format!("/etc/systemd/system/{}.service", name), service_content).expect("Failed to write service file");
+
+    if let Err(e) = fs::write(format!("/etc/systemd/system/{}.service", name), service_content) {
+        eprintln!("Failed to write service file: {}", e);
+        return;
+    }
 
     let mut timer_content = format!(
         "[Unit]\nDescription=Timer for {}\n\n[Timer]\n",
@@ -80,36 +84,85 @@ fn create_task(name: &str, command: &str, frequency: &str, timer_options: &str, 
         timer_content += &format!("OnCalendar={}\n", frequency);
     }
     if !timer_options.is_empty() {
-        let options: Vec<&str> = timer_options.split(',').collect();
-        for option in options {
+        timer_options.split(',').for_each(|option| {
             timer_content += &format!("{}\n", option);
-        }
+        });
     }
     timer_content += "Persistent=true\n\n[Install]\nWantedBy=timers.target\n";
-    fs::write(format!("/etc/systemd/system/{}.timer", name), timer_content).expect("Failed to write timer file");
 
-    Command::new("systemctl").arg("daemon-reload").status().expect("Failed to reload systemd daemon");
-    Command::new("systemctl").arg("enable").arg(format!("{}.timer", name)).status().expect("Failed to enable timer");
-    Command::new("systemctl").arg("start").arg(format!("{}.timer", name)).status().expect("Failed to start timer");
+    if let Err(e) = fs::write(format!("/etc/systemd/system/{}.timer", name), timer_content) {
+        eprintln!("Failed to write timer file: {}", e);
+        return;
+    }
 
-    let mut db = fs::OpenOptions::new().append(true).create(true).open(db_file).expect("Failed to open db file");
-    writeln!(db, "{}:{}:{}:{}", name, command, frequency, timer_options).expect("Failed to write to db file");
+    let reload_status = Command::new("systemctl").arg("daemon-reload").status();
+    if let Err(e) = reload_status {
+        eprintln!("Failed to reload systemd daemon: {}", e);
+        return;
+    }
 
-    println!("Service and timer for {} created and started successfully.", name);
+    let enable_status = Command::new("systemctl").arg("enable").arg(format!("{}.timer", name)).status();
+    if let Err(e) = enable_status {
+        eprintln!("Failed to enable timer: {}", e);
+        return;
+    }
+
+    let start_status = Command::new("systemctl").arg("start").arg(format!("{}.timer", name)).status();
+    if let Err(e) = start_status {
+        eprintln!("Failed to start timer: {}", e);
+        return;
+    }
+
+    match fs::OpenOptions::new().append(true).create(true).open(db_file) {
+        Ok(mut db) => {
+            if let Err(e) = writeln!(db, "{}:{}:{}:{}", name, command, frequency, timer_options) {
+                eprintln!("Failed to write to db file: {}", e);
+            } else {
+                println!("Service and timer for {} created and started successfully.", name);
+            }
+        }
+        Err(e) => eprintln!("Failed to open db file: {}", e),
+    }
 }
 
 fn delete_task(name: &str, db_file: &str) {
-    Command::new("systemctl").arg("stop").arg(format!("{}.timer", name)).status().expect("Failed to stop timer");
-    Command::new("systemctl").arg("disable").arg(format!("{}.timer", name)).status().expect("Failed to disable timer");
-    fs::remove_file(format!("/etc/systemd/system/{}.service", name)).expect("Failed to remove service file");
-    fs::remove_file(format!("/etc/systemd/system/{}.timer", name)).expect("Failed to remove timer file");
-    Command::new("systemctl").arg("daemon-reload").status().expect("Failed to reload systemd daemon");
+    let stop_status = Command::new("systemctl").arg("stop").arg(format!("{}.timer", name)).status();
+    if let Err(e) = stop_status {
+        eprintln!("Failed to stop timer: {}", e);
+        return;
+    }
 
-    let contents = fs::read_to_string(db_file).expect("Failed to read db file");
-    let new_contents: String = contents.lines().filter(|line| !line.starts_with(name)).collect::<Vec<&str>>().join("\n");
-    fs::write(db_file, new_contents).expect("Failed to write updated db file");
+    let disable_status = Command::new("systemctl").arg("disable").arg(format!("{}.timer", name)).status();
+    if let Err(e) = disable_status {
+        eprintln!("Failed to disable timer: {}", e);
+        return;
+    }
 
-    println!("Service and timer for {} deleted successfully.", name);
+    if let Err(e) = fs::remove_file(format!("/etc/systemd/system/{}.service", name)) {
+        eprintln!("Failed to remove service file: {}", e);
+    }
+
+    if let Err(e) = fs::remove_file(format!("/etc/systemd/system/{}.timer", name)) {
+        eprintln!("Failed to remove timer file: {}", e);
+    }
+
+    let reload_status = Command::new("systemctl").arg("daemon-reload").status();
+    if let Err(e) = reload_status {
+        eprintln!("Failed to reload systemd daemon: {}", e);
+        return;
+    }
+
+    match fs::read_to_string(db_file) {
+        Ok(contents) => {
+            let new_contents: String = contents.lines().filter(|line| !line.starts_with(name)).collect::<Vec<&str>>().join("\n");
+            if let Err(e) = fs::write(db_file, new_contents) {
+                eprintln!("Failed to write updated db file: {}", e);
+            } else {
+                println!("Service and timer for {} deleted successfully.", name);
+            }
+        },
+        Err(e) => eprintln!("Failed to read db file: {}", e),
+    }
 }
 
 fn list_db(db_file: &str) {
@@ -122,6 +175,6 @@ fn list_db(db_file: &str) {
                 println!("{}", contents);
             }
         },
-        Err(_) => println!("No tasks have been created yet."),
+        Err(_) => println!("Failed to read db file or no tasks have been created yet."),
     }
 }

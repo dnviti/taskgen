@@ -12,8 +12,6 @@ Systemd offers several advantages over traditional cron jobs for scheduling task
 - **Resource Control**: Systemd allows for precise control over the resources available to scheduled tasks, ensuring that critical system resources remain unaffected by background tasks.
 - **Security**: Enhanced security features, such as sandboxing, are available for tasks managed by systemd.
 
-Below is a sample documentation for the enhanced systemd timer and service creation script, designed to be posted on GitHub. This documentation includes an introduction, why to use systemd instead of cron, installation instructions, usage examples, and explains all possible uses.
-
 ---
 ## Installation
 

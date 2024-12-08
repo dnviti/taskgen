@@ -7,10 +7,7 @@ authors = ["dnviti@gmail.com"]
 license = "MIT"
 
 [dependencies]
-clap = "4.5.23"
-ini = "1.3.0"
-configparser = "3.1.0"
-prettytable = "0.10.0"
+clap = "3.0"
 
 [[bin]]
 name = "taskgen"

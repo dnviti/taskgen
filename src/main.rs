@@ -1,12 +1,15 @@
 use clap::{App, Arg};
 use serde::{Deserialize, Serialize};
+use std::io::{self, Write};
+use std::os::unix::fs::PermissionsExt;
 use std::{fs, process::Command};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 struct Task {
     /// Unique identifier for the task, matching the systemd service and timer name in the JSON database.
     name: String,
-    /// Command executed by the service; stored as a plain string in the JSON file.
+    /// Command executed by the service; if multiple commands were provided they are joined with `&&`,
+    /// or the path to the generated script when `--create-script` is used.
     command: String,
     /// `OnCalendar` expression defining how often the timer runs (e.g., `"daily"`).
     frequency: String,
@@ -30,6 +33,26 @@ fn save_tasks(db_file: &str, tasks: &[Task]) {
     }
 }
 
+fn prompt_for_commands() -> Vec<String> {
+    println!("Enter commands to execute, one per line. Leave empty line to finish:");
+    let stdin = io::stdin();
+    let mut commands = Vec::new();
+    loop {
+        print!("> ");
+        io::stdout().flush().unwrap();
+        let mut input = String::new();
+        if stdin.read_line(&mut input).is_err() {
+            break;
+        }
+        let line = input.trim();
+        if line.is_empty() {
+            break;
+        }
+        commands.push(line.to_string());
+    }
+    commands
+}
+
 fn main() {
     let matches = App::new("Systemd Timer Manager")
         .version("0.1")
@@ -49,7 +72,16 @@ fn main() {
                 .short('c')
                 .long("command")
                 .value_name("COMMAND")
-                .help("Command that the service will execute")
+                .help("Command that the service will execute (repeat for multiple commands)")
+                .takes_value(true)
+                .multiple_occurrences(true),
+        )
+        .arg(
+            Arg::with_name("create-script")
+                .short('s')
+                .long("create-script")
+                .value_name("SCRIPT")
+                .help("Create a shell script with the provided commands and use it for ExecStart")
                 .takes_value(true),
         )
         .arg(
@@ -65,7 +97,17 @@ fn main() {
                 .short('o')
                 .long("operation")
                 .value_name("OPERATION")
-                .help("Operation to perform: create (default) or delete")
+                .help(
+                    "Systemd operation to perform: create (default), delete or any systemctl verb",
+                )
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("unit")
+                .short('u')
+                .long("unit")
+                .value_name("UNIT")
+                .help("Target unit type for operations: service or timer (default timer)")
                 .takes_value(true),
         )
         .arg(
@@ -96,23 +138,72 @@ fn main() {
 
     match operation {
         "create" => {
-            let command = matches
-                .value_of("command")
-                .expect("Command is required for create operation");
+            let commands: Vec<String> = match matches.values_of("command") {
+                Some(vals) => vals.map(|c| c.to_string()).collect(),
+                None => prompt_for_commands(),
+            };
             let frequency = matches.value_of("frequency").unwrap_or_default();
             let timer_options = matches.value_of("timer_options").unwrap_or_default();
-            create_task(name, command, frequency, timer_options, db_file);
+            let script_path = matches.value_of("create-script");
+            create_task(
+                name,
+                &commands,
+                frequency,
+                timer_options,
+                db_file,
+                script_path,
+            );
         }
         "delete" => delete_task(name, db_file),
-        _ => println!("Invalid operation: {}", operation),
+        other => {
+            let unit = matches.value_of("unit").unwrap_or("timer");
+            systemd_operation(name, other, unit);
+        }
     }
 }
 
-fn create_task(name: &str, command: &str, frequency: &str, timer_options: &str, db_file: &str) {
-    let service_content = format!(
-        "[Unit]\nDescription=Service for {}\n\n[Service]\nType=oneshot\nExecStart={}\n",
-        name, command
+fn create_task(
+    name: &str,
+    commands: &[String],
+    frequency: &str,
+    timer_options: &str,
+    db_file: &str,
+    script_path: Option<&str>,
+) {
+    if commands.is_empty() {
+        eprintln!("At least one command is required");
+        return;
+    }
+
+    let mut service_content = format!(
+        "[Unit]\nDescription=Service for {}\n\n[Service]\nType=oneshot\n",
+        name
     );
+
+    let command_db_string;
+
+    if let Some(path) = script_path {
+        let mut script = String::from("#!/bin/sh\n");
+        for c in commands {
+            script.push_str(c);
+            script.push('\n');
+        }
+        if let Err(e) = fs::write(path, &script) {
+            eprintln!("Failed to write script file: {}", e);
+            return;
+        }
+        if let Err(e) = fs::set_permissions(path, fs::Permissions::from_mode(0o755)) {
+            eprintln!("Failed to set script permissions: {}", e);
+            return;
+        }
+        service_content += &format!("ExecStart={}\n", path);
+        command_db_string = path.to_string();
+    } else {
+        for c in commands {
+            service_content += &format!("ExecStart={}\n", c);
+        }
+        command_db_string = commands.join(" && ");
+    }
 
     if let Err(e) = fs::write(
         format!("/etc/systemd/system/{}.service", name),
@@ -165,7 +256,7 @@ fn create_task(name: &str, command: &str, frequency: &str, timer_options: &str, 
     let mut tasks = load_tasks(db_file);
     tasks.push(Task {
         name: name.to_string(),
-        command: command.to_string(),
+        command: command_db_string,
         frequency: frequency.to_string(),
         timer_options: timer_options.to_string(),
     });
@@ -213,6 +304,33 @@ fn delete_task(name: &str, db_file: &str) {
     let new_tasks: Vec<Task> = tasks.into_iter().filter(|t| t.name != name).collect();
     save_tasks(db_file, &new_tasks);
     println!("Service and timer for {} deleted successfully.", name);
+}
+
+fn systemd_operation(name: &str, operation: &str, unit: &str) {
+    const SYSTEMD_FUNCTIONS: &[&str] = &[
+        "start",
+        "stop",
+        "restart",
+        "reload",
+        "enable",
+        "disable",
+        "status",
+        "daemon-reload",
+    ];
+    if !SYSTEMD_FUNCTIONS.contains(&operation) {
+        eprintln!("Unsupported systemctl operation: {}", operation);
+        return;
+    }
+    let unit_name = format!("{}.{}", name, unit);
+    let status = Command::new("systemctl")
+        .arg(operation)
+        .arg(&unit_name)
+        .status();
+    if let Err(e) = status {
+        eprintln!("Failed to {} {}: {}", operation, unit_name, e);
+    } else {
+        println!("systemctl {} {} executed", operation, unit_name);
+    }
 }
 
 fn list_db(db_file: &str) {
@@ -284,9 +402,7 @@ mod tests {
     #[test]
     fn load_tasks_partial_fields() {
         let mut file = NamedTempFile::new().unwrap();
-        file
-            .write_all(b"[{\"name\":\"only\"}]")
-            .unwrap();
+        file.write_all(b"[{\"name\":\"only\"}]").unwrap();
         let path = file.path().to_str().unwrap();
         let tasks = load_tasks(path);
         assert!(tasks.is_empty());

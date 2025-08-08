@@ -55,8 +55,11 @@ Unit tests in `src/main.rs` verify serialization, deserialization, and database 
 ### Basic Command Structure
 
 ```bash
-taskgen --name NAME --command COMMAND [--frequency FREQUENCY] [--operation OPERATION] [--timer-options OPTIONS]
+taskgen --name NAME [--command COMMAND ...] [--frequency FREQUENCY] [--operation OPERATION] [--unit UNIT] [--timer-options OPTIONS] [--create-script SCRIPT]
 ```
+
+Multiple `--command` options may be supplied to run several commands sequentially. If no `--command` flags are passed, `taskgen` prompts interactively for commands, accepting one per line until a blank line is entered. The `--create-script` option writes the provided commands to a shell script and uses it as the service's `ExecStart`.
+The `--operation` flag accepts any `systemctl` operation such as `start`, `stop`, `enable`, `disable`, `restart`, or `status`. Use `--unit` to specify whether the action targets the generated `service` or `timer` (default `timer`).
 
 ### Examples
 
@@ -76,7 +79,23 @@ taskgen --name NAME --command COMMAND [--frequency FREQUENCY] [--operation OPERA
    taskgen --name daily-backup --operation delete
    ```
 
-3. **Specifying Advanced Timer Options**
+3. **Running Multiple Commands**
+
+   Execute several commands sequentially without writing a script.
+
+   ```bash
+   taskgen --name cleanup --command "echo start" --command "rm -rf /tmp/*" --frequency daily
+   ```
+
+4. **Creating a Shell Script Automatically**
+
+   Store the provided commands in a script and run that script.
+
+   ```bash
+   taskgen --name scripted-task --command "echo one" --command "echo two" --create-script /usr/local/bin/mytask.sh --frequency hourly
+   ```
+
+5. **Specifying Advanced Timer Options**
 
    Create a timer that starts a task 10 minutes after boot, repeating every 2 hours, with a randomized delay of up to 30 seconds.
 
@@ -84,7 +103,7 @@ taskgen --name NAME --command COMMAND [--frequency FREQUENCY] [--operation OPERA
    taskgen --name example-task --command "/path/to/script" --timer-options "OnBootSec=10min,OnUnitActiveSec=2h,RandomizedDelaySec=30s"
    ```
 
-4. **Weekly Email Report**
+6. **Weekly Email Report**
 
    Send an email report every Monday at 08:00 AM.
 
@@ -92,12 +111,20 @@ taskgen --name NAME --command COMMAND [--frequency FREQUENCY] [--operation OPERA
    taskgen --name weekly-email --command "/usr/bin/send-email-report.sh" --frequency weekly
    ```
 
-5. **Reboot System at Specific Time**
+7. **Reboot System at Specific Time**
 
    Schedule a system reboot every day at 3:00 AM.
 
    ```bash
    taskgen --name system-reboot --command "/sbin/reboot" --frequency "*-*-* 03:00:00"
+   ```
+
+8. **Starting a Service Manually**
+
+   Run a systemd operation on the generated service unit instead of the timer.
+
+   ```bash
+   taskgen --name daily-backup --operation start --unit service
    ```
 
 ### Advanced Configuration

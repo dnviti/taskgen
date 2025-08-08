@@ -50,6 +50,8 @@ Example:
 ]
 ```
 
+Unit tests in `src/main.rs` verify serialization, deserialization, and database file handling for this format, ensuring the data model is robust and consistently validated.
+
 ### Basic Command Structure
 
 ```bash

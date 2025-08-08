@@ -1,5 +1,34 @@
 use clap::{App, Arg};
-use std::{fs, io::Write, process::Command};
+use serde::{Deserialize, Serialize};
+use std::{fs, process::Command};
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+struct Task {
+    /// Unique identifier for the task, matching the systemd service and timer name in the JSON database.
+    name: String,
+    /// Command executed by the service; stored as a plain string in the JSON file.
+    command: String,
+    /// `OnCalendar` expression defining how often the timer runs (e.g., `"daily"`).
+    frequency: String,
+    /// Comma-separated additional timer directives such as `"Persistent=true"`.
+    timer_options: String,
+}
+
+fn load_tasks(db_file: &str) -> Vec<Task> {
+    match fs::read_to_string(db_file) {
+        Ok(data) => serde_json::from_str(&data).unwrap_or_default(),
+        Err(_) => Vec::new(),
+    }
+}
+
+fn save_tasks(db_file: &str, tasks: &[Task]) {
+    if let Err(e) = fs::write(
+        db_file,
+        serde_json::to_string_pretty(tasks).unwrap_or_default(),
+    ) {
+        eprintln!("Failed to write db file: {}", e);
+    }
+}
 
 fn main() {
     let matches = App::new("Systemd Timer Manager")
@@ -55,7 +84,7 @@ fn main() {
         )
         .get_matches();
 
-    let db_file = "/var/lib/taskgen-db";
+    let db_file = "/var/lib/taskgen-db.json";
 
     if matches.is_present("list") {
         list_db(db_file);
@@ -133,23 +162,18 @@ fn create_task(name: &str, command: &str, frequency: &str, timer_options: &str, 
         return;
     }
 
-    match fs::OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open(db_file)
-    {
-        Ok(mut db) => {
-            if let Err(e) = writeln!(db, "{}:{}:{}:{}", name, command, frequency, timer_options) {
-                eprintln!("Failed to write to db file: {}", e);
-            } else {
-                println!(
-                    "Service and timer for {} created and started successfully.",
-                    name
-                );
-            }
-        }
-        Err(e) => eprintln!("Failed to open db file: {}", e),
-    }
+    let mut tasks = load_tasks(db_file);
+    tasks.push(Task {
+        name: name.to_string(),
+        command: command.to_string(),
+        frequency: frequency.to_string(),
+        timer_options: timer_options.to_string(),
+    });
+    save_tasks(db_file, &tasks);
+    println!(
+        "Service and timer for {} created and started successfully.",
+        name
+    );
 }
 
 fn delete_task(name: &str, db_file: &str) {
@@ -185,33 +209,86 @@ fn delete_task(name: &str, db_file: &str) {
         return;
     }
 
-    match fs::read_to_string(db_file) {
-        Ok(contents) => {
-            let new_contents: String = contents
-                .lines()
-                .filter(|line| !line.starts_with(name))
-                .collect::<Vec<&str>>()
-                .join("\n");
-            if let Err(e) = fs::write(db_file, new_contents) {
-                eprintln!("Failed to write updated db file: {}", e);
-            } else {
-                println!("Service and timer for {} deleted successfully.", name);
-            }
-        }
-        Err(e) => eprintln!("Failed to read db file: {}", e),
-    }
+    let tasks = load_tasks(db_file);
+    let new_tasks: Vec<Task> = tasks.into_iter().filter(|t| t.name != name).collect();
+    save_tasks(db_file, &new_tasks);
+    println!("Service and timer for {} deleted successfully.", name);
 }
 
 fn list_db(db_file: &str) {
-    match fs::read_to_string(db_file) {
-        Ok(contents) => {
-            println!("List of systemd timers and services created by taskgen:");
-            if contents.is_empty() {
-                println!("No tasks have been created yet.");
-            } else {
-                println!("{}", contents);
-            }
+    let tasks = load_tasks(db_file);
+    println!("List of systemd timers and services created by taskgen:");
+    if tasks.is_empty() {
+        println!("No tasks have been created yet.");
+    } else {
+        for t in tasks {
+            println!(
+                "{}:{}:{}:{}",
+                t.name, t.command, t.frequency, t.timer_options
+            );
         }
-        Err(_) => println!("Failed to read db file or no tasks have been created yet."),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    fn sample_task() -> Task {
+        Task {
+            name: "sample".to_string(),
+            command: "/bin/echo hello".to_string(),
+            frequency: "daily".to_string(),
+            timer_options: "Persistent=true".to_string(),
+        }
+    }
+
+    #[test]
+    fn task_serialization_round_trip() {
+        let task = sample_task();
+        let json = serde_json::to_string(&task).unwrap();
+        let deserialized: Task = serde_json::from_str(&json).unwrap();
+        assert_eq!(task, deserialized);
+    }
+
+    #[test]
+    fn load_save_round_trip() {
+        let task = sample_task();
+        let file = NamedTempFile::new().unwrap();
+        let path = file.path().to_str().unwrap().to_string();
+
+        save_tasks(&path, &[task.clone()]);
+        let loaded = load_tasks(&path);
+        assert_eq!(loaded, vec![task]);
+    }
+
+    #[test]
+    fn load_tasks_empty_file() {
+        let file = NamedTempFile::new().unwrap();
+        let path = file.path().to_str().unwrap();
+        let tasks = load_tasks(path);
+        assert!(tasks.is_empty());
+    }
+
+    #[test]
+    fn load_tasks_invalid_json() {
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "{{ invalid").unwrap();
+        let path = file.path().to_str().unwrap();
+        let tasks = load_tasks(path);
+        assert!(tasks.is_empty());
+    }
+
+    #[test]
+    fn load_tasks_partial_fields() {
+        let mut file = NamedTempFile::new().unwrap();
+        file
+            .write_all(b"[{\"name\":\"only\"}]")
+            .unwrap();
+        let path = file.path().to_str().unwrap();
+        let tasks = load_tasks(path);
+        assert!(tasks.is_empty());
     }
 }

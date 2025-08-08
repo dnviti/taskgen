@@ -26,6 +26,31 @@ rm -f taskgen
 ## Usage
 
 The script supports creating and deleting systemd timers and services with a variety of options for detailed customization.
+Task metadata is stored in `/var/lib/taskgen-db.json` using a JSON format for improved reliability.
+
+### Task database format
+
+The database file contains a JSON array where each element represents a task object with four string fields:
+
+- `name` – unique identifier matching the generated systemd service and timer.
+- `command` – command executed by the service.
+- `frequency` – systemd `OnCalendar` expression determining how often the task runs.
+- `timer_options` – comma-separated additional timer directives.
+
+Example:
+
+```json
+[
+  {
+    "name": "daily-backup",
+    "command": "/usr/bin/backup.sh",
+    "frequency": "daily",
+    "timer_options": ""
+  }
+]
+```
+
+Unit tests in `src/main.rs` verify serialization, deserialization, and database file handling for this format, ensuring the data model is robust and consistently validated.
 
 ### Basic Command Structure
 
